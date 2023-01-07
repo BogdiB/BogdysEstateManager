@@ -1,7 +1,3 @@
 # BE
-A data management application using files.
-Made for a project.
-Languages and important mentions:
-- Python (Tkinter GUI)
-- PyBind11 (linking Python and C++)
-- C++ (file management - faster)
+A data management app made for a university project.
+Made in Python with Tkinter (GUI) and SQLite (database).
