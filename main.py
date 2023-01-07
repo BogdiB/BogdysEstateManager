@@ -3,10 +3,12 @@ from tkinter import *
 from tkinter import filedialog
 from tkinter import ttk
 import sqlite3
+import os
 
 # initialising constants
 dbName = "BEM.db"
-searchNumber = 0
+dbFile = None
+searchNumber = 0 # put +1 when showing this number to the user
 # general colors used
 bgColor = "orange"
 errorColor = "red"
@@ -15,42 +17,6 @@ successColor = "green"
 fontBig = ("Arial", 26)
 fontMedium = ("Arial", 18)
 fontFeedback = ("Arial bold", 20)
-
-# preparing database stuff
-# USE https://inloop.github.io/sqlite-viewer/ TO VIEW DB FILE CONTENTS
-# TODO: add "permanent" db, just copy everything the whole db code except for the deletes
-dbConnection = sqlite3.connect(dbName) # creating a connection to the main database
-# dbConnectionP = sqlite3.connect("permanentBEM.db") # creating a connection to the permanent database
-dbCursor = dbConnection.cursor() # creating a cursor through the connection to the main database
-# dbCursorP = dbConnectionP.cursor() # creating a cursor through the connection to the permanent database
-
-# tables are created only if they don't exist
-dbCursor.execute("""CREATE TABLE IF NOT EXISTS location(
-city VARCHAR(60) PRIMARY KEY,
-country VARCHAR(60) DEFAULT('Romania')
-)""")
-# dbCursor.execute("""INSERT OR IGNORE INTO location VALUES ('Timisoara', 'Romania')""")
-# DO NOT GIVE THE cID A VALUE, IT MANAGES ITSELF AUTOMATICALLY BECAUSE IT'S AN INTEGER PRIMARY KEY (meaning it just renames "rowid")
-dbCursor.execute("""CREATE TABLE IF NOT EXISTS customers(
-cID INTEGER PRIMARY KEY,
-cName VARCHAR(100) NOT NULL,
-phone INT UNIQUE,
-city VARCHAR(60) DEFAULT('Timisoara'),
-country VARCHAR(60) DEFAULT('Romania')
-)""")
-# cID OF THE properties TABLE SHOULD PICK THE CUSTOMER cID
-dbCursor.execute("""CREATE TABLE IF NOT EXISTS properties(
-cName VARCHAR(100) NOT NULL,
-price INT NOT NULL,
-currency VARCHAR(5) NOT NULL,
-priceType VARCHAR(8) NOT NULL,
-country VARCHAR(60) DEFAULT('Romania'),
-city VARCHAR(60) NOT NULL,
-description TEXT
-)""")
-# dbCursorP.execute("""CREATE TABLE """)
-dbConnection.commit()
-dbConnection.close()
 
 # initialising the main window and the options
 windowMain = Tk()
@@ -76,6 +42,7 @@ frameAdd = ttk.Frame(master=windowMain, style="mainStyle.TFrame", padding=10)
 
 def showMain():
     """ Shows the main frame and forgets the other frames. """
+    dbCreatedLabel.grid_forget()
     resultLabel.grid_forget()
     errorLabel.grid_forget()
     successLabel.grid_forget()
@@ -87,6 +54,8 @@ def showMain():
 
 def showSearch():
     """ Shows the search frame and forgets the other frames. """
+    previousButton.grid_forget()
+    nextButton.grid_forget()
     frameMain.pack_forget()
     frameAdd.pack_forget()
     frameSearch.pack()
@@ -104,12 +73,17 @@ def showAdd():
 def fileDialog():
     """ Will ask for what file you want to import and then store it in another "internal" file which remembers settings
     and all that. """
-    file = tk.filedialog.askopenfile(mode="r", filetypes=[("Database files", ".db")])
-    # copy the file
+    global dbFile
+    path = tk.filedialog.askopenfile(mode="r", filetypes=[("Database files", ".db")])
+    if path is None:
+        dbFile = dbName
+    else:
+        dbFile = str(path).split("'")[1] # gets the full file path
     return
 
 def addProperty():
     """ Adds a property to the database and shows either an error or a confirmation message. """
+    dbCreatedLabel.grid_forget()
     errorLabel.grid_forget()
     successLabel.grid_forget()
     if nameEntry.get().isnumeric() or priceEntry.get().isalpha() or phoneEntry.get().isalpha() or cityEntry.get().isnumeric():
@@ -120,7 +94,48 @@ def addProperty():
         errorLabel.config(text="Empty inputs.")
         errorLabel.grid(column=1, pady=30)
         return
-    dbConnectionF = sqlite3.connect(dbName)  # creating a connection to the main database
+    # start of database creation stuff
+    global dbFile, dbName
+    booly = False
+    if dbFile is None:
+        dbFile = dbName
+        booly = True
+        # preparing database stuff
+        # USE https://inloop.github.io/sqlite-viewer/ TO VIEW DB FILE CONTENTS
+        # TODO: add "permanent" db, just copy everything the whole db code except for the deletes when I eventually implement them
+        dbConnection = sqlite3.connect(dbFile)  # creating a connection to the main database
+        # dbConnectionP = sqlite3.connect("permanentBEM.db") # creating a connection to the permanent database
+        dbCursor = dbConnection.cursor()  # creating a cursor through the connection to the main database
+        # dbCursorP = dbConnectionP.cursor() # creating a cursor through the connection to the permanent database
+        # tables are created only if they don't exist
+        dbCursor.execute("""CREATE TABLE IF NOT EXISTS location(
+        city VARCHAR(60) PRIMARY KEY,
+        country VARCHAR(60) DEFAULT('Romania')
+        )""")
+        # dbCursor.execute("""INSERT OR IGNORE INTO location VALUES ('Timisoara', 'Romania')""")
+        # DO NOT GIVE THE cID A VALUE, IT MANAGES ITSELF AUTOMATICALLY BECAUSE IT'S AN INTEGER PRIMARY KEY (meaning it just renames "rowid")
+        dbCursor.execute("""CREATE TABLE IF NOT EXISTS customers(
+        cID INTEGER PRIMARY KEY,
+        cName VARCHAR(100) NOT NULL,
+        phone INT UNIQUE,
+        city VARCHAR(60) DEFAULT('Timisoara'),
+        country VARCHAR(60) DEFAULT('Romania')
+        )""")
+        # cID OF THE properties TABLE SHOULD PICK THE CUSTOMER cID
+        dbCursor.execute("""CREATE TABLE IF NOT EXISTS properties(
+        cName VARCHAR(100) NOT NULL,
+        price INT NOT NULL,
+        currency VARCHAR(5) NOT NULL,
+        priceType VARCHAR(8) NOT NULL,
+        country VARCHAR(60) DEFAULT('Romania'),
+        city VARCHAR(60) NOT NULL,
+        description TEXT
+        )""")
+        # dbCursorP.execute("""CREATE TABLE """)
+        dbConnection.commit()
+        dbConnection.close()
+    # end of database creation stuff
+    dbConnectionF = sqlite3.connect(dbFile)  # creating a connection to the main database
     dbCursorF = dbConnectionF.cursor()  # creating a cursor through the connection to the main database
     dbCursorF.execute("""INSERT OR IGNORE INTO customers (cName, phone, city) VALUES (?, ?, ?)""",
                      (nameEntry.get(), phoneEntry.get(), cityEntry.get()))
@@ -133,30 +148,90 @@ def addProperty():
     # dbCursorF.close() # close cursor
     dbConnectionF.commit()  # commit changes
     dbConnectionF.close()  # close the connection
-    successLabel.grid(column=1, pady=30)
+    successLabel.grid(column=1, pady=30) # will be added after each Tkinter object before it, so no row must be specified
+    if booly == True:
+        dbCreatedLabel.grid(column=1, pady=15) # will be added after each Tkinter object before it, so no row must be specified
     return
 
-def searchResult():
-    """ Shows the search result. """
+def searchResult(booly):
+    """ Shows the search result. Give None as the parameter if it's the first time the search result is showed in this
+    frame, give False as the parameter if you want the previous result, and True if you want the next one. """
     # only grid_forget() resultLabel when switching back to the main frame
     if searchEntry.get() == '':
         resultLabel.config(text="No input.")
+        resultLabel.grid(column=0, row=3, columnspan=2)
         return
-    dbConnectionF = sqlite3.connect(dbName)  # creating a connection to the main database
-    dbCursorF = dbConnectionF.cursor()  # creating a cursor through the connection to the main database
-    dbCursorF.execute("""SELECT price, currency, priceType, city FROM properties WHERE cName == ?""", (searchEntry.get(),)) # WITHOUT THE COMMA, IT'S NOT A TUPLE, SO IT CRASHES
-    fullTextR = dbCursorF.fetchall()
-    textR = "Property {}:\n{}: {}{} in {}".format(searchNumber, fullTextR[searchNumber][2], fullTextR[searchNumber][1], fullTextR[searchNumber][0], fullTextR[searchNumber][3])
-    resultLabel.config(text=textR)
-    resultLabel.grid(column=0, row=3, columnspan=2)
-    # no changes to commit so just close the connection
-    dbConnectionF.close()
-    return
-
-def nextResult():
-    return
-
-def previousResult():
+    global dbFile, searchNumber # declares that these variables are taken from the global scope
+    if dbFile is None:
+        if os.path.exists(dbName):
+            dbFile = dbName
+            dbConnectionF = sqlite3.connect(dbFile)  # creating a connection to the main database
+        else:
+            resultLabel.config(text="No database selected/created.\nTo create a new database, go to the main\npage and click Add Property, and add a\nproperty.")
+            resultLabel.grid(column=0, row=3, columnspan=2)
+            return
+        dbCursorF = dbConnectionF.cursor()  # creating a cursor through the connection to the main database
+        dbCursorF.execute("""SELECT price, currency, priceType, city FROM properties WHERE cName == ?""", (searchEntry.get(),)) # WITHOUT THE COMMA, IT'S NOT A TUPLE, SO IT CRASHES
+        fullTextR = dbCursorF.fetchall()
+        if len(fullTextR) == 0:
+            resultLabel.config(text="No properties.")
+            resultLabel.grid(column=0, row=3, columnspan=2)
+            # no changes to commit so just close the connection
+            dbConnectionF.close()
+            return
+        if booly is None:
+            searchNumber = 0
+        elif booly:
+            searchNumber += 1
+            # -1 because searchNumber stores the index and len(fullTextR) gives the size
+            if searchNumber > len(fullTextR) - 1:
+                searchNumber = len(fullTextR) - 1
+        else:
+            searchNumber -= 1
+            if searchNumber < 0:
+                searchNumber = 0
+        textR = "Property {} of {}:\n\n{}: {} {} in\n{} city.".format(searchNumber + 1, len(fullTextR), fullTextR[searchNumber][2], fullTextR[searchNumber][0], fullTextR[searchNumber][1], fullTextR[searchNumber][3])
+        resultLabel.config(text=textR)
+        resultLabel.grid(column=0, row=3, columnspan=2)
+        previousButton.grid(column=0, row=4, pady=25, sticky="W")
+        nextButton.grid(column=1, row=4, pady=25, sticky="E")
+        # no changes to commit so just close the connection
+        dbConnectionF.close()
+        return
+    else:
+        dbConnectionF = sqlite3.connect(dbFile)  # creating a connection to the main database
+        dbCursorF = dbConnectionF.cursor()  # creating a cursor through the connection to the main database
+        dbCursorF.execute("""SELECT price, currency, priceType, city FROM properties WHERE cName == ?""",
+                          (searchEntry.get(),))  # WITHOUT THE COMMA, IT'S NOT A TUPLE, SO IT CRASHES
+        fullTextR = dbCursorF.fetchall()
+        if len(fullTextR) == 0:
+            resultLabel.config(text="No properties.")
+            resultLabel.grid(column=0, row=3, columnspan=2)
+            # no changes to commit so just close the connection
+            dbConnectionF.close()
+            return
+        if booly is None:
+            searchNumber = 0
+        elif booly:
+            searchNumber += 1
+            # -1 because searchNumber stores the index and len(fullTextR) gives the size
+            if searchNumber > len(fullTextR) - 1:
+                searchNumber = len(fullTextR) - 1
+        else:
+            searchNumber -= 1
+            if searchNumber < 0:
+                searchNumber = 0
+        textR = "Property {} of {}:\n\n{}: {} {} in\n{} city.".format(searchNumber + 1, len(fullTextR),
+                                                                      fullTextR[searchNumber][2],
+                                                                      fullTextR[searchNumber][0],
+                                                                      fullTextR[searchNumber][1],
+                                                                      fullTextR[searchNumber][3])
+        resultLabel.config(text=textR)
+        resultLabel.grid(column=0, row=3, columnspan=2)
+        previousButton.grid(column=0, row=4, pady=25, sticky="W")
+        nextButton.grid(column=1, row=4, pady=25, sticky="E")
+        # no changes to commit so just close the connection
+        dbConnectionF.close()
     return
 
 # buttons
@@ -178,16 +253,19 @@ quitButton = ttk.Button(master=frameMain, text="Quit", command=windowMain.destro
 quitButton.grid(column=0, row=4)
 
 # search frame stuff
-searchLabel = ttk.Label(master=frameSearch, text="Search name:", font=fontBig, padding=50, background=bgColor)
-searchLabel.grid(column=0, row=0)
+searchLabel = ttk.Label(master=frameSearch, text="Search name:", font=fontBig, padding=50, background=bgColor, justify=CENTER)
+searchLabel.grid(column=0, row=0, columnspan=2)
 
-searchEntry = ttk.Entry(master=frameSearch, width=32)
-searchEntry.grid(column=0, row=1)
-searchSubmit = ttk.Button(master=frameSearch, text="Search", command=lambda: searchResult())
-searchSubmit.grid(column=1, row=1)
+searchEntry = ttk.Entry(master=frameSearch, width=40)
+searchEntry.grid(column=0, row=1, sticky="E", padx=25)
+searchSubmit = ttk.Button(master=frameSearch, text="Search", command=lambda: searchResult(None))
+searchSubmit.grid(column=1, row=1, columnspan=2, sticky="W")
+
+previousButton = ttk.Button(master=frameSearch, text="< Previous", command=lambda: searchResult(False))
+nextButton = ttk.Button(master=frameSearch, text="Next >", command=lambda: searchResult(True))
 
 backButtonSearch = ttk.Button(master=frameSearch, text="Back", command=lambda: showMain())
-backButtonSearch.grid(column=0, row=2, pady=50)
+backButtonSearch.grid(column=0, row=2, pady=50, columnspan=2)
 
 resultLabel = ttk.Label(master=frameSearch, text="", font=fontMedium, background=bgColor, justify=CENTER)
 
@@ -236,6 +314,7 @@ descriptionText.grid(column=1, row=6)
 # labels for feedback on submitting
 errorLabel = ttk.Label(master=frameAdd, text=".", font=fontFeedback, background=bgColor, foreground=errorColor)
 successLabel = ttk.Label(master=frameAdd, text="Added successfully.", font=fontFeedback, background=bgColor, foreground=successColor)
+dbCreatedLabel = ttk.Label(master=frameAdd, text="No database had been\nselected, created one.", font=fontFeedback, background=bgColor)
 
 addSubmit = ttk.Button(master=frameAdd, text="Add", command=lambda: addProperty())
 addSubmit.grid(column=1, row=8, pady=30)
