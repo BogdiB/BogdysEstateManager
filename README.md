@@ -1,3 +1,3 @@
 # BE
-A data management app made for a university project.\n
+A data management app made for a university project.
 Made in Python with Tkinter (GUI) and SQLite (database).
