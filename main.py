@@ -75,10 +75,13 @@ def fileDialog():
     and all that. """
     global dbFile
     path = tk.filedialog.askopenfile(mode="r", filetypes=[("Database files", ".db")])
-    if path is None:
-        dbFile = dbName
+    if path is None or path == '':
+        if os.path.exists(dbName):
+            dbFile = dbName
     else:
-        dbFile = str(path).split("'")[1] # gets the full file path
+        path = str(path).split("'")[1]
+        if os.path.exists(path):
+            dbFile = path # gets the full file path
     return
 
 def addProperty():
