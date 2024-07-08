@@ -1,4 +1,3 @@
 # Estate Manager
-A data management app made for a university project.
-
-Made in Python with Tkinter (GUI) and SQLite3 (database).
+A desktop application for data management of a real estate company.
+Made with Python, SQLite3, and Tkinter for the GUI.
